@@ -1,7 +1,7 @@
-import { describe, it, beforeEach } from 'node:test'
+import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { PrivateKey } from '@bsv/sdk'
-import { createAuthSigner, createAuthVerifier, clearUsedSignatures } from '../lib/auth.js'
+import { createAuthSigner, createAuthVerifier } from '../lib/auth.js'
 
 describe('auth', () => {
   const key1 = PrivateKey.fromRandom()
@@ -10,8 +10,6 @@ describe('auth', () => {
   const pub2 = key2.toPublicKey().toString()
 
   describe('createAuthSigner + createAuthVerifier', () => {
-    beforeEach(() => clearUsedSignatures())
-
     it('valid signature passes verification', () => {
       const signer = createAuthSigner(key1)
       const verifier = createAuthVerifier({ trustedPubkeys: [pub1] })

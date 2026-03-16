@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "OVERLAY_SKIP_CHAIN_CHECK=true node --test test/*.test.js",
+    "test:hardened": "node --test test/auth.test.js test/wallet.test.js test/topic-manager.test.js test/slap.test.js test/sync.test.js",
     "cli": "node cli.js"
   },
   "engines": {
