@@ -134,7 +134,7 @@ async function cmdPublishShip () {
     process.exit(1)
   }
 
-  console.log(`  UTXOs:    ${utxos.length} (${utxos.reduce((s, u) => s + u.satoshis, 0)} sats)`)
+  console.log(`  UTXOs:    ${utxos.length} (${utxos.reduce((s, u) => s + u.value, 0)} sats)`)
 
   // Fetch raw tx hex for each UTXO
   const fundingUtxos = []
