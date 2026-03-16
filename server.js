@@ -3,7 +3,8 @@ import { OverlayStore } from './lib/store.js'
 import { ShipTopicManager } from './lib/ship-topic-manager.js'
 import { TopicLookupService } from './lib/lookup.js'
 import { OverlaySync } from './lib/sync.js'
-import { createPaymentGate, loadPricing } from './lib/payment.js'
+import { createPaymentGate, createPaymentVerifier, loadPricing } from './lib/payment.js'
+import { loadIdentity } from './lib/wallet.js'
 import { applyCors, handleSubmit, handleRevoke, handleLookup, handleStatus } from './lib/handlers.js'
 
 const DEFAULT_PORT = parseInt(process.env.OVERLAY_PORT || '3360', 10)
@@ -27,9 +28,20 @@ export async function startServer ({ port = DEFAULT_PORT, dbPath = DEFAULT_DB_PA
   const lookupService = new TopicLookupService(store)
   const sync = new OverlaySync({ peerUrls: peers })
   const pricing = loadPricing()
-  const submitGate = createPaymentGate({ satoshis: pricing.submit, description: 'SHIP token listing fee' })
-  const lookupGate = createPaymentGate({ satoshis: pricing.lookup, description: 'Directory lookup fee' })
-  const revokeGate = createPaymentGate({ satoshis: pricing.revoke, description: 'Revocation fee' })
+
+  // Wire payment verifier if identity key is available and any endpoint is priced
+  let verifyPayment = null
+  const anyPriced = pricing.submit > 0 || pricing.lookup > 0 || pricing.revoke > 0
+  if (anyPriced && process.env.OVERLAY_WIF) {
+    const { identityKey } = loadIdentity(process.env.OVERLAY_WIF)
+    verifyPayment = createPaymentVerifier(identityKey)
+  } else if (anyPriced) {
+    console.warn('[Overlay] Pricing is set but OVERLAY_WIF is missing — payment verification disabled')
+  }
+
+  const submitGate = createPaymentGate({ satoshis: pricing.submit, description: 'SHIP token listing fee', verifyPayment })
+  const lookupGate = createPaymentGate({ satoshis: pricing.lookup, description: 'Directory lookup fee', verifyPayment })
+  const revokeGate = createPaymentGate({ satoshis: pricing.revoke, description: 'Revocation fee', verifyPayment })
 
   const server = createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json')
