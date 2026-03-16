@@ -237,7 +237,7 @@ When pricing is non-zero and `OVERLAY_WIF` is set, the server:
 3. Client retries with `x-bsv-payment` header containing a transaction paying to that address
 4. Server verifies the output, prevents replay, and proceeds
 
-**Current limitation:** Payment verification checks transaction structure (correct address, sufficient amount, prefix not replayed) but does not confirm the transaction is broadcast or confirmed on-chain. Deploy with pricing at 0 until on-chain settlement verification is added.
+Payment verification includes BRC-42 derived address check, amount verification, replay prevention, and on-chain broadcast verification via the relay bridge (with WoC fallback).
 
 ## Multi-Node Sync
 
@@ -375,10 +375,12 @@ cli.js                     # Operator commands: init, status, publish-ship, publ
 | [BRC-88](https://github.com/bitcoin-sv/BRCs/blob/master/overlays/0088.md) | SHIP/SLAP synchronization architecture |
 | [BRC-105](https://github.com/bitcoin-sv/BRCs/blob/master/payments/0105.md) | HTTP micropayment framework |
 
-## Known Limitations (v0.1.0)
+## Security
 
-- **No BRC-31 authentication** — endpoints are open HTTP. Suitable for single-operator deployment. Multi-operator trust requires BRC-31 mutual authentication (future work).
-- **On-chain verification depends on WhatsOnChain** — tx broadcast/confirmation checks use WoC API. If WoC is unavailable, submissions and payments are rejected rather than accepted on trust.
+- **Authenticated endpoints** — `/submit` and `/revoke` support identity-key signed requests via `x-overlay-auth` header. Authenticated requests skip on-chain verification (operator/peer is trusted). Unauthenticated requests must pass on-chain verification via the relay bridge or WoC.
+- **Peer sync authentication** — multi-node propagation uses signed requests. The `x-overlay-sync` flag is only honoured when accompanied by a valid signature from a trusted pubkey. Unauthenticated callers cannot bypass verification.
+- **On-chain verification** — transaction broadcast checks use the local relay bridge (`/tx/:txid`) as primary, WhatsOnChain as fallback. If neither is available, submissions and payments are rejected rather than accepted on trust.
+- **Replay prevention** — payment derivation prefixes are tracked with TTL and consumed after use. Duplicate payments are rejected.
 
 ## License
 

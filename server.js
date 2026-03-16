@@ -5,6 +5,7 @@ import { TopicLookupService } from './lib/lookup.js'
 import { OverlaySync } from './lib/sync.js'
 import { createPaymentGate, createPaymentVerifier, loadPricing } from './lib/payment.js'
 import { loadIdentity } from './lib/wallet.js'
+import { createAuthVerifier } from './lib/auth.js'
 import { applyCors, handleSubmit, handleRevoke, handleLookup, handleStatus } from './lib/handlers.js'
 
 const DEFAULT_PORT = parseInt(process.env.OVERLAY_PORT || '3360', 10)
@@ -27,7 +28,20 @@ export async function startServer ({ port = DEFAULT_PORT, dbPath = DEFAULT_DB_PA
 
   const topicManager = new ShipTopicManager(store, { skipChainCheck })
   const lookupService = new TopicLookupService(store)
-  const sync = new OverlaySync({ peerUrls: peers })
+  // Build trusted pubkey set for peer auth: own pubkey + configured peer pubkeys
+  const trustedPubkeys = new Set()
+  let overlayIdentityKey = null
+  if (process.env.OVERLAY_WIF) {
+    const identity = loadIdentity(process.env.OVERLAY_WIF)
+    trustedPubkeys.add(identity.identityPubHex)
+    overlayIdentityKey = identity.identityKey
+  }
+  // Add peer pubkeys if configured (comma-separated pubkeys)
+  const peerPubkeys = (process.env.OVERLAY_PEER_PUBKEYS || '').split(',').filter(Boolean)
+  for (const pk of peerPubkeys) trustedPubkeys.add(pk)
+
+  const authVerifier = trustedPubkeys.size > 0 ? createAuthVerifier({ trustedPubkeys }) : null
+  const sync = new OverlaySync({ peerUrls: peers, identityKey: overlayIdentityKey })
   const pricing = loadPricing()
 
   // Wire payment verifier if identity key is available and any endpoint is priced
@@ -58,9 +72,9 @@ export async function startServer ({ port = DEFAULT_PORT, dbPath = DEFAULT_DB_PA
 
     try {
       if (req.method === 'POST' && path === '/submit') {
-        if (await submitGate(req, res)) await handleSubmit(req, res, topicManager, sync)
+        if (await submitGate(req, res)) await handleSubmit(req, res, topicManager, sync, authVerifier)
       } else if (req.method === 'POST' && path === '/revoke') {
-        if (await revokeGate(req, res)) await handleRevoke(req, res, topicManager, sync)
+        if (await revokeGate(req, res)) await handleRevoke(req, res, topicManager, sync, authVerifier)
       } else if (req.method === 'POST' && path === '/lookup') {
         if (await lookupGate(req, res)) await handleLookup(req, res, lookupService, store)
       } else if (req.method === 'GET' && path === '/status') {
