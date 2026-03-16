@@ -35,7 +35,8 @@ cp .env.example .env
 # Edit .env: set OVERLAY_WIF and OVERLAY_DOMAIN
 
 # Run tests
-npm test
+npm test              # full suite (chain checks bypassed for local fake txs)
+npm run test:hardened # auth, sync, wallet, SLAP without any bypass
 
 # Start the server
 node server.js
