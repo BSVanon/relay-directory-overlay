@@ -1,0 +1,8 @@
+{
+  "wif": "REPLACE_WITH_YOUR_WIF_OR_USE_OVERLAY_WIF_ENV",
+  "identityPubHex": "",
+  "address": "",
+  "domain": "your-domain.example.com",
+  "overlayPort": 3360,
+  "dbPath": "./data/directory.db"
+}
