@@ -85,11 +85,85 @@ describe('Multi-node sync', () => {
   })
 
   it('sync-received entries do not re-propagate (loop prevention)', async () => {
-    // Node 2 has no peers, so even if it wanted to propagate, it can't.
-    // But the key point: entries received via signed sync are from a trusted
-    // peer, so the handler skips propagation (fromTrustedPeer = true)
     const res = await fetch(`http://127.0.0.1:${port2}/status`)
     const status = await res.json()
-    assert.ok(status.entries >= 1) // has the propagated entry
+    assert.ok(status.entries >= 1)
+  })
+})
+
+describe('Multi-node sync with distinct peer keys', () => {
+  let serverA, serverB, tmpA, tmpB, portA, portB, keyA, keyB, identityA, signerA
+
+  before(async () => {
+    tmpA = await mkdtemp(join(tmpdir(), 'overlay-peerA-'))
+    tmpB = await mkdtemp(join(tmpdir(), 'overlay-peerB-'))
+    portA = 15860 + Math.floor(Math.random() * 100)
+    portB = portA + 1
+
+    keyA = PrivateKey.fromRandom()
+    keyB = PrivateKey.fromRandom()
+    identityA = loadIdentity(keyA.toWif())
+    signerA = createAuthSigner(keyA)
+
+    const pubA = keyA.toPublicKey().toString()
+    const pubB = keyB.toPublicKey().toString()
+
+    // Node B trusts node A's pubkey (and its own)
+    process.env.OVERLAY_WIF = keyB.toWif()
+    process.env.OVERLAY_PEER_PUBKEYS = pubA
+    serverB = await startServer({ port: portB, dbPath: join(tmpB, 'db'), peerUrls: [] })
+    delete process.env.OVERLAY_PEER_PUBKEYS
+
+    // Node A trusts node B's pubkey (and its own), peers with B
+    process.env.OVERLAY_WIF = keyA.toWif()
+    process.env.OVERLAY_PEER_PUBKEYS = pubB
+    serverA = await startServer({ port: portA, dbPath: join(tmpA, 'db'), peerUrls: [`http://127.0.0.1:${portB}`] })
+    delete process.env.OVERLAY_WIF
+    delete process.env.OVERLAY_PEER_PUBKEYS
+  })
+
+  after(async () => {
+    serverA.server.close()
+    serverB.server.close()
+    await serverA.store.close()
+    await serverB.store.close()
+    await rm(tmpA, { recursive: true, force: true })
+    await rm(tmpB, { recursive: true, force: true })
+  })
+
+  it('node A propagates to node B using distinct identity keys', async () => {
+    const p2pkh = new P2PKH()
+    const fundingTx = new Transaction()
+    fundingTx.addOutput({ lockingScript: p2pkh.lock(identityA.identityPub.toAddress()), satoshis: 100000 })
+    const shipTx = await buildShipTx({
+      identityKey: identityA.identityKey,
+      domain: 'nodeA.test',
+      topic: 'distinct:peer:test',
+      utxos: [{ txHex: fundingTx.toHex(), outputIndex: 0, satoshis: 100000 }]
+    })
+
+    // Submit to node A with A's auth
+    const bodyStr = JSON.stringify({ rawTx: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
+    const res = await fetch(`http://127.0.0.1:${portA}/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-overlay-auth': signerA.sign('POST', '/submit', bodyStr)
+      },
+      body: bodyStr
+    })
+    assert.equal((await res.json()).status, 'success')
+
+    await new Promise(r => setTimeout(r, 1000))
+
+    // Node B should have it — received via A's signed sync, verified against A's pubkey
+    const lookup = await fetch(`http://127.0.0.1:${portB}/lookup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: { topic: 'distinct:peer:test' } })
+    })
+    const data = await lookup.json()
+    assert.ok(data.outputs.length >= 1, 'Node B should have the entry from node A')
+    assert.equal(data.outputs[0].domain, 'nodeA.test')
   })
 })

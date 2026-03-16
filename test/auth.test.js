@@ -1,7 +1,7 @@
-import { describe, it } from 'node:test'
+import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { PrivateKey } from '@bsv/sdk'
-import { createAuthSigner, createAuthVerifier } from '../lib/auth.js'
+import { createAuthSigner, createAuthVerifier, clearUsedSignatures } from '../lib/auth.js'
 
 describe('auth', () => {
   const key1 = PrivateKey.fromRandom()
@@ -10,6 +10,8 @@ describe('auth', () => {
   const pub2 = key2.toPublicKey().toString()
 
   describe('createAuthSigner + createAuthVerifier', () => {
+    beforeEach(() => clearUsedSignatures())
+
     it('valid signature passes verification', () => {
       const signer = createAuthSigner(key1)
       const verifier = createAuthVerifier({ trustedPubkeys: [pub1] })
@@ -73,11 +75,9 @@ describe('auth', () => {
       const signer = createAuthSigner(key1)
       const verifier = createAuthVerifier({ trustedPubkeys: [pub1] })
 
-      // Manually create an auth header with old timestamp
       const body = '{}'
       const authJson = JSON.parse(signer.sign('POST', '/submit', body))
-      authJson.timestamp = Math.floor(Date.now() / 1000) - 600 // 10 minutes ago
-      // Re-sign won't match, but the timestamp check comes first
+      authJson.timestamp = Math.floor(Date.now() / 1000) - 600
       const req = {
         method: 'POST',
         url: '/submit',
@@ -85,6 +85,28 @@ describe('auth', () => {
       }
       const result = verifier.verify(req, body)
       assert.equal(result.valid, false)
+    })
+
+    it('rejects replayed signature within valid time window', () => {
+      const signer = createAuthSigner(key1)
+      const verifier = createAuthVerifier({ trustedPubkeys: [pub1] })
+
+      const body = '{"test":"replay"}'
+      const authHeader = signer.sign('POST', '/submit', body)
+      const req = {
+        method: 'POST',
+        url: '/submit',
+        headers: { host: 'localhost:3360', 'x-overlay-auth': authHeader }
+      }
+
+      // First use succeeds
+      const result1 = verifier.verify(req, body)
+      assert.equal(result1.valid, true)
+
+      // Exact same request replayed — rejected
+      const result2 = verifier.verify(req, body)
+      assert.equal(result2.valid, false)
+      assert.ok(result2.reason.includes('replayed'))
     })
   })
 })

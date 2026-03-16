@@ -4,7 +4,7 @@ A SHIP/SLAP overlay for the [Federated SPV Relay Mesh](https://github.com/zcoolz
 
 ## What It Does
 
-The relay mesh carries ephemeral signed data envelopes between bridges. But there's no built-in way to discover what data is available. This overlay fills that gap using the BSV overlay services architecture (BRC-22/24/88):
+Part of federated relay mesh function is carrying ephemeral signed data envelopes between bridges.  An overlay directory allows this data to be broadcast and disovered efficiently. Relay peers, and the apps using them, can now use BRC-22/24/88 overlay services architecture:
 
 - Bridge operators publish **SHIP tokens** on-chain to advertise the topics they carry
 - Apps query the overlay to find bridges for a topic (e.g. "who carries `oracle:rates:bsv`?")
@@ -341,6 +341,8 @@ node cli.js publish-slap relay-topic-lookup
 | `OVERLAY_PORT` | No | 3360 | HTTP server port |
 | `OVERLAY_DB_PATH` | No | ./data/directory.db | LevelDB path |
 | `OVERLAY_PEERS` | No | — | Comma-separated peer overlay URLs |
+| `OVERLAY_PEER_PUBKEYS` | No | — | Comma-separated peer identity pubkeys (hex) for sync auth |
+| `OVERLAY_BRIDGE_URL` | No | http://127.0.0.1:9333 | Relay bridge URL for on-chain tx verification |
 | `OVERLAY_CORS_ORIGINS` | No | * | Comma-separated allowed origins |
 | `OVERLAY_PRICE_SUBMIT` | No | 0 | Sats per /submit |
 | `OVERLAY_PRICE_LOOKUP` | No | 0 | Sats per /lookup |
@@ -377,10 +379,11 @@ cli.js                     # Operator commands: init, status, publish-ship, publ
 
 ## Security
 
-- **Authenticated endpoints** — `/submit` and `/revoke` support identity-key signed requests via `x-overlay-auth` header. Authenticated requests skip on-chain verification (operator/peer is trusted). Unauthenticated requests must pass on-chain verification via the relay bridge or WoC.
-- **Peer sync authentication** — multi-node propagation uses signed requests. The `x-overlay-sync` flag is only honoured when accompanied by a valid signature from a trusted pubkey. Unauthenticated callers cannot bypass verification.
-- **On-chain verification** — transaction broadcast checks use the local relay bridge (`/tx/:txid`) as primary, WhatsOnChain as fallback. If neither is available, submissions and payments are rejected rather than accepted on trust.
-- **Replay prevention** — payment derivation prefixes are tracked with TTL and consumed after use. Duplicate payments are rejected.
+- **Signed request authentication** — `/submit` and `/revoke` support identity-key signed requests via `x-overlay-auth` header. The signature covers method, path, timestamp, and body hash. Authenticated requests from trusted pubkeys skip on-chain verification. Unauthenticated requests must pass on-chain verification.
+- **Signature replay prevention** — each signed request is tracked by its signature. Reuse of the same signature within the TTL window is rejected. Timestamp freshness is enforced (5-minute window).
+- **Peer sync authentication** — multi-node propagation uses signed requests with `x-overlay-sync` flag. The flag is only honoured when accompanied by a valid signature from a pubkey in `OVERLAY_PEER_PUBKEYS`. Unauthenticated callers cannot set this flag.
+- **On-chain verification** — transaction broadcast checks use the local relay bridge (`/tx/:txid`) as primary source, WhatsOnChain as fallback. If neither is available, unauthenticated submissions are rejected.
+- **Payment replay prevention** — payment derivation prefixes are tracked with TTL and consumed after use. Duplicate payments are rejected.
 
 ## License
 
