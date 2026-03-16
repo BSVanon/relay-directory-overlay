@@ -60,7 +60,7 @@ describe('HTTP server', () => {
     const shipTx = await buildTestToken()
     const res = await fetch(url('/submit'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
       body: JSON.stringify({ txHex: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
     })
     const data = await res.json()
@@ -73,7 +73,7 @@ describe('HTTP server', () => {
     const shipTx = await buildTestToken('oracle:rates:eth')
     const res = await fetch(url('/submit'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
       body: JSON.stringify({ rawTx: shipTx.txHex, topics: ['SHIP'] })
     })
     const data = await res.json()
@@ -216,7 +216,7 @@ describe('HTTP server', () => {
 
     const res = await fetch(url('/revoke'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
       body: JSON.stringify({
         spendingTxHex,
         spentTxid: entry.txid,
@@ -240,7 +240,7 @@ describe('HTTP server', () => {
     const shipTx = await buildTestToken('oracle:rates:jpy')
     await fetch(url('/submit'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
       body: JSON.stringify({ txHex: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
     })
 

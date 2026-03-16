@@ -101,17 +101,30 @@ describe('ShipTopicManager', () => {
     const result = manager.evaluate({ txHex: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
     assert.equal(result.admitted, true)
 
-    await manager.admit(result.entry)
+    await manager.admit(result.entry, { skipChainCheck: true })
 
     const entries = await store.findByTopic('oracle:rates:bsv')
     assert.equal(entries.length, 1)
     assert.equal(entries[0].topic, 'oracle:rates:bsv')
   })
 
+  it('stores outputScript and rawTx in admitted entry', async () => {
+    const shipTx = await buildTestShipToken('oracle:rates:eth')
+    const result = manager.evaluate({ txHex: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
+    assert.ok(result.entry.outputScript)
+    assert.ok(result.entry.rawTx)
+    await manager.admit(result.entry, { skipChainCheck: true })
+
+    const entries = await store.findByTopic('oracle:rates:eth')
+    assert.equal(entries.length, 1)
+    assert.ok(entries[0].outputScript.length > 0)
+    assert.ok(entries[0].rawTx.length > 0)
+  })
+
   it('revokes an admitted entry', async () => {
     const shipTx = await buildTestShipToken()
     const result = manager.evaluate({ txHex: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
-    await manager.admit(result.entry)
+    await manager.admit(result.entry, { skipChainCheck: true })
 
     const revoked = await manager.revoke(result.entry.txid, result.entry.outputIndex)
     assert.equal(revoked, true)

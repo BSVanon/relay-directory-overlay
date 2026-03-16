@@ -363,14 +363,6 @@ server.js                  # Routing and wiring (96 lines)
 cli.js                     # Operator commands: init, status, publish-ship, publish-slap
 ```
 
-## Tests
-
-```bash
-npm test
-```
-
-53 tests covering wallet derivation, token admission, HTTP endpoints, payment flow, multi-node sync, SLAP, and client SDK.
-
 ## Standards Reference
 
 | Standard | Usage |
@@ -385,10 +377,8 @@ npm test
 
 ## Known Limitations (v0.1.0)
 
-- **No BRC-8/BRC-9 SPV validation on /submit** — transactions are parsed and BRC-48 format is verified, but on-chain confirmation is not checked
-- **No BRC-31 authentication** — endpoints are open HTTP (single-operator node; auth needed for multi-operator deployments)
-- **Payment verification is structural** — checks correct address and amount, does not confirm on-chain broadcast. Deploy with pricing at 0 until on-chain settlement verification is added.
-- **BRC-36 response is partial** — returns txid, vout, satoshis + overlay metadata, not full envelope with outputScript/rawTx/proof
+- **No BRC-31 authentication** — endpoints are open HTTP. Suitable for single-operator deployment. Multi-operator trust requires BRC-31 mutual authentication (future work).
+- **On-chain verification depends on WhatsOnChain** — tx broadcast/confirmation checks use WoC API. If WoC is unavailable, submissions and payments are rejected rather than accepted on trust.
 
 ## License
 

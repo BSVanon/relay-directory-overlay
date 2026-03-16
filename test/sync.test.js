@@ -79,7 +79,7 @@ describe('Multi-node sync', () => {
     // Submit directly to node 2 with the sync header — simulating a sync from another peer
     const res = await fetch(`http://127.0.0.1:${port2}/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rawTx: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
     })
     const data = await res.json()

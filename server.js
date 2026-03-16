@@ -21,10 +21,11 @@ const DEFAULT_DB_PATH = process.env.OVERLAY_DB_PATH || './data/directory.db'
  */
 export async function startServer ({ port = DEFAULT_PORT, dbPath = DEFAULT_DB_PATH, peerUrls = null } = {}) {
   const peers = peerUrls || (process.env.OVERLAY_PEERS || '').split(',').filter(Boolean)
+  const skipChainCheck = process.env.OVERLAY_SKIP_CHAIN_CHECK === 'true'
   const store = new OverlayStore(dbPath)
   await store.open()
 
-  const topicManager = new ShipTopicManager(store)
+  const topicManager = new ShipTopicManager(store, { skipChainCheck })
   const lookupService = new TopicLookupService(store)
   const sync = new OverlaySync({ peerUrls: peers })
   const pricing = loadPricing()
@@ -34,7 +35,7 @@ export async function startServer ({ port = DEFAULT_PORT, dbPath = DEFAULT_DB_PA
   const anyPriced = pricing.submit > 0 || pricing.lookup > 0 || pricing.revoke > 0
   if (anyPriced && process.env.OVERLAY_WIF) {
     const { identityKey } = loadIdentity(process.env.OVERLAY_WIF)
-    verifyPayment = createPaymentVerifier(identityKey)
+    verifyPayment = createPaymentVerifier(identityKey, { skipChainCheck })
   } else if (anyPriced) {
     console.warn('[Overlay] Pricing is set but OVERLAY_WIF is missing — payment verification disabled')
   }

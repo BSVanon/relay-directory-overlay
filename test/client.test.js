@@ -30,7 +30,12 @@ describe('DirectoryClient', () => {
       topic: 'oracle:rates:bsv',
       utxos: [{ txHex: fundingTx.toHex(), outputIndex: 0, satoshis: 100000 }]
     })
-    await client.submit(shipTx.txHex, shipTx.shipOutputIndex)
+    // Submit with sync header to skip chain check in tests
+    await fetch(`http://127.0.0.1:${port}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-overlay-sync': 'true' },
+      body: JSON.stringify({ rawTx: shipTx.txHex, outputIndex: shipTx.shipOutputIndex })
+    })
   })
 
   after(async () => {
