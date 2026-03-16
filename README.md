@@ -1,4 +1,4 @@
-# Relay Directory Overlay
+# Relay Directory Overlay v0.1.0
 
 A SHIP/SLAP overlay for the [Federated SPV Relay Mesh](https://github.com/zcoolz/relay-federation). Makes the mesh self-describing — any app can discover what data topics exist, who publishes them, and which bridges carry them.
 

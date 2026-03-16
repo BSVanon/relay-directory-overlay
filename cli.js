@@ -293,11 +293,18 @@ async function loadConfig () {
 
 async function fetchUtxos (address) {
   try {
-    const res = await fetch(`https://api.whatsonchain.com/v1/bsv/main/address/${address}/unspent`, {
+    // Use /confirmed/unspent — the /unspent endpoint returns 404 for some addresses
+    const res = await fetch(`https://api.whatsonchain.com/v1/bsv/main/address/${address}/confirmed/unspent`, {
       signal: AbortSignal.timeout(10000)
     })
     if (!res.ok) return []
-    return await res.json()
+    const data = await res.json()
+    // WoC /confirmed/unspent wraps results in { result: [...] }
+    return (data.result || data).map(u => ({
+      tx_hash: u.tx_hash,
+      tx_pos: u.tx_pos,
+      value: u.value
+    }))
   } catch {
     return []
   }
